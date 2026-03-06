@@ -317,11 +317,3 @@ export function extractInlineFields(
 
   return filteredFields;
 }
-
-export function getDataviewPlugin(app?: import('obsidian').App) {
-  if (!app?.plugins?.enabledPlugins?.has('dataview')) {
-    return null;
-  }
-
-  return app.plugins.plugins['dataview'];
-}

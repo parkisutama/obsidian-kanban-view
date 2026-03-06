@@ -21,3 +21,5 @@ Thumbs.db
 
 # Local Docs
 docs/
+.claude/settings.local.json
+
