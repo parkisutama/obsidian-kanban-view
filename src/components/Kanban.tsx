@@ -5,26 +5,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/compat
 import { KanbanView } from 'src/KanbanView';
 import { StateManager } from 'src/StateManager';
 import { useIsAnythingDragging } from 'src/dnd/components/DragOverlay';
-import { ScrollContainer } from 'src/dnd/components/ScrollContainer';
-import { SortPlaceholder } from 'src/dnd/components/SortPlaceholder';
-import { Sortable } from 'src/dnd/components/Sortable';
 import { createHTMLDndHandlers } from 'src/dnd/managers/DragManager';
 import { t } from 'src/lang/helpers';
 
 import { DndScope } from '../dnd/components/Scope';
 import { getBoardModifiers } from '../helpers/boardModifiers';
 import { frontmatterKey } from '../parsers/common';
+import { BoardView } from '../views/BoardView';
+import { ListView } from '../views/ListView';
+import { TableView } from '../views/TableView';
 import { Icon } from './Icon/Icon';
-import { Lanes } from './Lane/Lane';
 import { LaneForm } from './Lane/LaneForm';
-import { TableView } from './Table/Table';
 import { KanbanContext, SearchContext } from './context';
 import { baseClassName, c, useSearchValue } from './helpers';
 import { refreshPrettyProperties } from './prettyProperties';
-import { DataTypes } from './types';
-
-const boardScrollTiggers = [DataTypes.Item, DataTypes.Lane];
-const boardAccepts = [DataTypes.Lane];
 
 interface KanbanProps {
   stateManager: StateManager;
@@ -219,7 +213,6 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
     );
   }
 
-  const axis = boardView === 'list' ? 'vertical' : 'horizontal';
   const searchValue = useSearchValue(
     boardData,
     debouncedSearchQuery,
@@ -281,30 +274,18 @@ export const Kanban = ({ view, stateManager }: KanbanProps) => {
             )}
             {boardView === 'table' ? (
               <TableView boardData={boardData} stateManager={stateManager} />
+            ) : boardView === 'list' ? (
+              <ListView
+                viewId={view.id}
+                boardData={boardData}
+                isLaneFormVisible={isLaneFormVisible}
+              />
             ) : (
-              <ScrollContainer
-                id={view.id}
-                className={classcat([
-                  c('board'),
-                  {
-                    [c('horizontal')]: boardView !== 'list',
-                    [c('vertical')]: boardView === 'list',
-                    'is-adding-lane': isLaneFormVisible,
-                  },
-                ])}
-                triggerTypes={boardScrollTiggers}
-              >
-                <div>
-                  <Sortable axis={axis}>
-                    <Lanes lanes={boardData.children} collapseDir={axis} />
-                    <SortPlaceholder
-                      accepts={boardAccepts}
-                      className={c('lane-placeholder')}
-                      index={boardData.children.length}
-                    />
-                  </Sortable>
-                </div>
-              </ScrollContainer>
+              <BoardView
+                viewId={view.id}
+                boardData={boardData}
+                isLaneFormVisible={isLaneFormVisible}
+              />
             )}
           </div>
         </SearchContext.Provider>
