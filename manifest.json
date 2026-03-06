@@ -1,0 +1,10 @@
+{
+  "id": "kanban-view",
+  "name": "Kanban View",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "View any markdown file as a kanban board. Headings become lanes, list items become cards. Portable, non-destructive, zero file pollution.",
+  "author": "Parkis Utama",
+  "authorUrl": "https://github.com/parkisutama/obsidian-kanban-view",
+  "isDesktopOnly": false
+}

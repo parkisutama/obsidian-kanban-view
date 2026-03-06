@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+main.js
+*.map
+
+# Environment variables (IMPORTANT: Jangan commit file ini)
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+
+# Testing
+*.log
+
+# Local Docs
+docs/
