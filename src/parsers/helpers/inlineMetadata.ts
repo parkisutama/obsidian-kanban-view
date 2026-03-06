@@ -265,7 +265,7 @@ function extractSpecialTaskFields(line: string): InlineField[] {
     if (!match) continue;
 
     let value = match[1];
-    let end = match.index + match[0].length;
+    const end = match.index + match[0].length;
 
     if (key === 'priority') value = iconToPriority(value);
     // Recurrence rule text is kept as-is (rrule dependency removed)
@@ -285,7 +285,7 @@ function extractSpecialTaskFields(line: string): InlineField[] {
 
 export function extractInlineFields(
   line: string,
-  includeTaskFields: boolean = false
+  includeTaskFields = false
 ): InlineField[] | null {
   let fields: InlineField[] = [];
 

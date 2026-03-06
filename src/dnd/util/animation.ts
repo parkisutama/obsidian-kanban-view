@@ -60,15 +60,15 @@ export const timings = {
   maxDropTime: 550,
 };
 
-const outOfTheWayTiming: string = `${timings.outOfTheWay}ms ${curves.outOfTheWay}`;
-export const placeholderTransitionDelayTime: number = 100;
+const outOfTheWayTiming = `${timings.outOfTheWay}ms ${curves.outOfTheWay}`;
+export const placeholderTransitionDelayTime = 100;
 
 export const transitions = {
   none: `none`,
   fluid: `opacity ${outOfTheWayTiming}`,
   snap: `transform ${outOfTheWayTiming}, opacity ${outOfTheWayTiming}`,
   drop: (duration: number): string => {
-    const timing: string = `${duration}ms ${curves.drop}`;
+    const timing = `${duration}ms ${curves.drop}`;
     return `transform ${timing}, opacity ${timing}`;
   },
   outOfTheWay: `transform ${outOfTheWayTiming}`,
@@ -91,9 +91,9 @@ export const transforms = {
 };
 
 const dropTimeRange: number = timings.maxDropTime - timings.minDropTime;
-const maxDropTimeAtDistance: number = 1500;
+const maxDropTimeAtDistance = 1500;
 // will bring a time lower - which makes it faster
-const cancelDropModifier: number = 0.6;
+const cancelDropModifier = 0.6;
 
 export function getDropDuration({
   position,

@@ -55,7 +55,7 @@ export function buildRemoveMutation(path: Path, replacement?: Nestable) {
 export function buildInsertMutation(
   destination: Path,
   entities: Nestable[],
-  destinationModifier: number = 0
+  destinationModifier = 0
 ) {
   return buildUpdateParentMutation(destination, {
     children: {

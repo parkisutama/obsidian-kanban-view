@@ -33,7 +33,7 @@ type QAble = () => Promise<any>;
 
 export class PromiseQueue {
   queue: Array<QAble> = [];
-  isRunning: boolean = false;
+  isRunning = false;
 
   constructor(public onComplete: () => void) { }
 

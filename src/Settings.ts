@@ -113,7 +113,7 @@ export class SettingsManager {
   config: SettingsManagerConfig;
   settings: KanbanSettings;
   cleanupFns: Array<() => void> = [];
-  applyDebounceTimer: number = 0;
+  applyDebounceTimer = 0;
 
   constructor(plugin: KanbanPlugin, config: SettingsManagerConfig, settings: KanbanSettings) {
     this.app = plugin.app;

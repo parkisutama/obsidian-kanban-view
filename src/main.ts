@@ -59,9 +59,9 @@ export default class KanbanPlugin extends Plugin {
 
   windowRegistry: Map<Window, WindowRegistry> = new Map();
 
-  _loaded: boolean = false;
+  _loaded = false;
 
-  isShiftPressed: boolean = false;
+  isShiftPressed = false;
 
   async loadSettings() {
     const data = await this.loadData();
@@ -365,7 +365,7 @@ export default class KanbanPlugin extends Plugin {
     this.windowRegistry.delete(win);
   }
 
-  async setMarkdownView(leaf: WorkspaceLeaf, focus: boolean = true) {
+  async setMarkdownView(leaf: WorkspaceLeaf, focus = true) {
     await leaf.setViewState(
       {
         type: 'markdown',

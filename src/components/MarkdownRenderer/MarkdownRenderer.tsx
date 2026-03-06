@@ -24,7 +24,7 @@ export class BasicMarkdownRenderer extends Component {
   wrapperEl: HTMLElement;
   renderCapability: PromiseCapability;
   observer: ResizeObserver;
-  isVisible: boolean = false;
+  isVisible = false;
   mark: Mark;
 
   lastWidth = -1;

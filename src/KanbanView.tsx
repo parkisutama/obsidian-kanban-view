@@ -123,7 +123,7 @@ export class KanbanView extends TextFileView implements HoverParent {
     }
   }
 
-  setBoard(board: Board, shouldSave: boolean = true) {
+  setBoard(board: Board, shouldSave = true) {
     const stateManager = this.plugin.stateManagers.get(this.file);
     stateManager.setState(board, shouldSave);
   }
@@ -351,7 +351,7 @@ export class KanbanView extends TextFileView implements HoverParent {
     ).open();
   }
 
-  onPaneMenu(menu: Menu, source: string, callSuper: boolean = true) {
+  onPaneMenu(menu: Menu, source: string, callSuper = true) {
     if (source !== 'more-options') {
       super.onPaneMenu(menu, source);
       return;

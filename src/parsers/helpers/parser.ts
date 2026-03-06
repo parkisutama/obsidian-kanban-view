@@ -31,7 +31,7 @@ export function replaceBrs(str: string) {
   return str.replace(/<br>/g, '\n').trim();
 }
 
-export function indentNewLines(str: string, useTab: boolean = true) {
+export function indentNewLines(str: string, useTab = true) {
   return str.trim().replace(/(?:\r\n|\n)/g, useTab ? '\n\t' : '\n    ');
 }
 

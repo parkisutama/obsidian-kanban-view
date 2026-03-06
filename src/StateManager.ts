@@ -172,7 +172,7 @@ export class StateManager {
     }
   }
 
-  setState(state: Board | ((board: Board) => Board), shouldSave: boolean = true) {
+  setState(state: Board | ((board: Board) => Board), shouldSave = true) {
     try {
       const oldSettings = this.state?.data.settings;
       const newState = typeof state === 'function' ? state(this.state) : state;

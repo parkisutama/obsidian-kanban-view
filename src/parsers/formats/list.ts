@@ -420,7 +420,7 @@ function archiveToMd(archive: Item[], useTab: boolean) {
   return '';
 }
 
-export function boardToMd(board: Board, useTab: boolean = true) {
+export function boardToMd(board: Board, useTab = true) {
   const lanes = board.children.reduce((md, lane) => {
     return md + laneToMd(lane, useTab);
   }, '');

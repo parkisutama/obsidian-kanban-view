@@ -24,8 +24,8 @@ export class EntityManager {
   parent: EntityManager | null;
   scrollParent: ScrollManager | null;
   sortManager: SortManager | null;
-  isVisible: boolean = false;
-  mounted: boolean = false;
+  isVisible = false;
+  mounted = false;
 
   id: string;
   instanceId: string;

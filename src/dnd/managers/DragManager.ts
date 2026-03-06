@@ -49,8 +49,8 @@ export class DragManager {
   primaryIntersection?: Entity;
   scrollIntersection?: [Entity, number];
 
-  isHTMLDragging: boolean = false;
-  dragOverTimeout: number = 0;
+  isHTMLDragging = false;
+  dragOverTimeout = 0;
 
   constructor(
     win: Window,

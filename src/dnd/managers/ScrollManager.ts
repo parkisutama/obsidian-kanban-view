@@ -44,7 +44,7 @@ export class ScrollManager {
   bottom: Entity;
   left: Entity;
 
-  scrollFrame: number = 0;
+  scrollFrame = 0;
   activeScroll: Map<Side, number>;
 
   constructor(
