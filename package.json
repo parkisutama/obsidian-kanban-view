@@ -48,7 +48,7 @@
     "replace": "^1.2.2",
     "tslib": "^2.6.2",
     "typescript": "^5.8.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   },
   "dependencies": {
     "@tanstack/match-sorter-utils": "^8.15.1",
