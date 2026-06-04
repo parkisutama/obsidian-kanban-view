@@ -15,6 +15,20 @@ export function getEntityFromPath(root: Nestable, path: Path): Nestable {
   return root;
 }
 
+export function getEntityPathParents(root: Nestable, path: Path): Nestable[] {
+  const parents: Nestable[] = [root];
+  let current = root;
+
+  path.forEach((step) => {
+    current = current?.children?.[step];
+    if (current) {
+      parents.push(current);
+    }
+  });
+
+  return parents;
+}
+
 export function buildUpdateMutation(path: Path, mutation: Spec<Nestable>) {
   let pathedMutation: Spec<Nestable> = mutation;
 

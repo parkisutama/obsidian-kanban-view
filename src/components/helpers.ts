@@ -4,18 +4,15 @@ import Preact, { Dispatch, RefObject, useEffect } from 'preact/compat';
 import { StateUpdater, useMemo } from 'preact/hooks';
 import { StateManager } from 'src/StateManager';
 import { Path } from 'src/dnd/types';
-import { getEntityFromPath } from 'src/dnd/util/data';
-import {
-  InlineField,
-  getTaskStatusDone,
-} from 'src/parsers/helpers/inlineMetadata';
+import { getEntityPathParents } from 'src/dnd/util/data';
+import { getTaskStatusDone } from 'src/parsers/helpers/inlineMetadata';
 
 import { SearchContextProps } from './context';
-import { Board, DataKey, Item, Lane, PageData } from './types';
+import { Board, Item, Lane } from './types';
 
 export const baseClassName = 'kanban-plugin';
 
-export function noop() { }
+export function noop() {}
 
 const classCache = new Map<string, string>();
 export function c(className: string) {
@@ -40,11 +37,15 @@ export function maybeCompleteForMove(
   destinationPath: Path,
   item: Item
 ): { next: Item; replacement?: Item } {
-  const sourceParent = getEntityFromPath(sourceBoard, sourcePath.slice(0, -1));
-  const destinationParent = getEntityFromPath(destinationBoard, destinationPath.slice(0, -1));
+  const getCompletionSetting = (board: Board, path: Path) => {
+    const parents = getEntityPathParents(board, path.slice(0, -1)).reverse();
+    const owner = parents.find((entity) => entity?.data?.shouldMarkItemsComplete !== undefined);
+    return owner?.data?.shouldMarkItemsComplete;
+  };
 
-  const oldShouldComplete = sourceParent?.data?.shouldMarkItemsComplete;
-  const newShouldComplete = destinationParent?.data?.shouldMarkItemsComplete;
+  const oldShouldComplete = getCompletionSetting(sourceBoard, sourcePath);
+  const newShouldComplete = getCompletionSetting(destinationBoard, destinationPath);
+  const shouldComplete = !!newShouldComplete;
 
   // If neither the old or new lane set it complete, leave it alone
   if (!oldShouldComplete && !newShouldComplete) return { next: item };
@@ -52,17 +53,20 @@ export function maybeCompleteForMove(
   const isComplete = item.data.checked && item.data.checkChar === getTaskStatusDone();
 
   // If it already matches the new lane, leave it alone
-  if (newShouldComplete === isComplete) return { next: item };
+  if (shouldComplete === isComplete) return { next: item };
 
   // It's different, update it
   return {
     next: update(item, {
       data: {
         checked: {
-          $set: newShouldComplete,
+          $set: shouldComplete,
         },
         checkChar: {
-          $set: newShouldComplete ? getTaskStatusDone() : ' ',
+          $set: shouldComplete ? getTaskStatusDone() : ' ',
+        },
+        isTask: {
+          $set: true,
         },
       },
     }),
@@ -155,9 +159,6 @@ export function getTemplatePlugins(app: App) {
   const templatesEnabled = templatesPlugin?.enabled ?? false;
   const templaterPlugin = app.plugins.plugins['templater-obsidian'];
   const templaterEnabled = app.plugins.enabledPlugins.has('templater-obsidian');
-  const templaterEmptyFileTemplate =
-    templaterPlugin &&
-    app.plugins.plugins['templater-obsidian'].settings?.empty_file_template;
 
   const templateFolder = templatesEnabled
     ? templatesPlugin.instance.options.folder
@@ -170,26 +171,8 @@ export function getTemplatePlugins(app: App) {
     templatesEnabled,
     templaterPlugin: templaterPlugin?.templater,
     templaterEnabled,
-    templaterEmptyFileTemplate,
     templateFolder,
   };
-}
-
-export function parseMetadataWithOptions(data: InlineField, metadataKeys: DataKey[]): PageData {
-  const options = metadataKeys.find((opts) => opts.metadataKey === data.key);
-
-  return options
-    ? {
-      ...options,
-      value: data.value,
-    }
-    : {
-      containsMarkdown: false,
-      label: data.key,
-      metadataKey: data.key,
-      shouldHideLabel: false,
-      value: data.value,
-    };
 }
 
 export function useOnMount(refs: RefObject<HTMLElement>[], cb: () => void, onUnmount?: () => void) {
@@ -225,14 +208,18 @@ export function useSearchValue(
 
     if (query) {
       board.children.forEach((lane) => {
-        let laneMatched = false;
+        let matched = false;
+
         lane.children.forEach((item) => {
           if (item.data.titleSearch.includes(query)) {
-            laneMatched = true;
             items.add(item);
+            matched = true;
           }
         });
-        if (laneMatched) lanes.add(lane);
+
+        if (matched) {
+          lanes.add(lane);
+        }
       });
     }
 

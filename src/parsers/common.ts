@@ -8,10 +8,6 @@ import { t } from 'src/lang/helpers';
 
 export const frontmatterKey = 'kanban-plugin';
 
-export enum ParserFormats {
-  List,
-}
-
 export interface BaseFormat {
   newItem(content: string, checkChar: string, forceEdit?: boolean): Item;
   updateItemContent(item: Item, content: string): Item;

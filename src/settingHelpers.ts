@@ -6,7 +6,7 @@ import { KanbanSettings, SettingsManager } from './Settings';
 import { getTemplatePlugins } from './components/helpers';
 import { t } from './lang/helpers';
 
-export function getFolderChoices(app: App) {
+function getFolderChoices(app: App) {
   const folderList: IChoices.Choice[] = [];
 
   Vault.recurseChildren(app.vault.getRoot(), (f) => {
@@ -23,7 +23,7 @@ export function getFolderChoices(app: App) {
   return folderList;
 }
 
-export function getTemplateChoices(app: App, folderStr?: string) {
+function getTemplateChoices(app: App, folderStr?: string) {
   const fileList: IChoices.Choice[] = [];
 
   let folder = folderStr ? app.vault.getAbstractFileByPath(folderStr) : null;

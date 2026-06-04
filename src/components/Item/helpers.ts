@@ -19,7 +19,7 @@ export function getItemClassModifiers(item: Item) {
   return classModifiers;
 }
 
-export function linkTo(
+function linkTo(
   stateManager: StateManager,
   file: TFile,
   sourcePath: string,
@@ -29,11 +29,11 @@ export function linkTo(
   return stateManager.app.fileManager.generateMarkdownLink(file, sourcePath, subpath);
 }
 
-export function getMarkdown(html: string) {
+function getMarkdown(html: string) {
   return htmlToMarkdown(html);
 }
 
-export function fixLinks(text: string) {
+function fixLinks(text: string) {
   // Internal links from e.g. dataview plugin incorrectly begin with `app://obsidian.md/`, and
   // we also want to remove bullet points and task markers from text and markdown
   return text.replace(/^\[(.*)\]\(app:\/\/obsidian.md\/(.*)\)$/, '[$1]($2)');
@@ -45,7 +45,7 @@ interface FileData {
   originalName: string;
 }
 
-export function getFileListFromClipboard(win: Window & typeof globalThis) {
+function getFileListFromClipboard(win: Window & typeof globalThis) {
   const clipboard = win.require('electron').clipboard;
 
   if (process.platform === 'darwin') {

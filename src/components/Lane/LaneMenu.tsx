@@ -10,6 +10,7 @@ import { anyToString } from '../Item/MetadataTable';
 import { KanbanContext } from '../context';
 import { c, generateInstanceId } from '../helpers';
 import { EditState, Lane, LaneSort, LaneTemplate } from '../types';
+import { isItem } from './helpers';
 
 export type LaneAction = 'delete' | 'archive' | 'archive-items' | null;
 
@@ -27,6 +28,21 @@ const actionLabels = {
     confirm: t('Yes, archive cards'),
   },
 };
+
+export function sortLaneChildren(
+  lane: Lane,
+  compare: (a: Lane['children'][number], b: Lane['children'][number]) => number
+) {
+  const sortedItems = lane.children
+    .filter((child) => isItem(child))
+    .slice()
+    .sort(compare);
+
+  return lane.children.map((child) => {
+    if (!isItem(child)) return child;
+    return sortedItems.shift() || child;
+  });
+}
 
 export interface ConfirmActionProps {
   lane: Lane;
@@ -73,8 +89,9 @@ export function useSettingsMenu({ setEditState, path, lane }: UseSettingsMenuPar
   const settingsMenu = useMemo(() => {
     const metadataSortOptions = new Set<string>();
     let canSortTags = false;
+    const directItems = lane.children.filter((child) => isItem(child));
 
-    lane.children.forEach((item) => {
+    directItems.forEach((item) => {
       const taskData = item.data.metadata.inlineMetadata;
       if (taskData) {
         taskData.forEach((m) => {
@@ -157,10 +174,8 @@ export function useSettingsMenu({ setEditState, path, lane }: UseSettingsMenuPar
           .setIcon('arrow-down-up')
           .setTitle(t('Sort by card text'))
           .onClick(() => {
-            const children = lane.children.slice();
             const isAsc = lane.data.sorted === LaneSort.TitleAsc;
-
-            children.sort((a, b) => {
+            const children = sortLaneChildren(lane, (a, b) => {
               if (isAsc) {
                 return b.data.title.localeCompare(a.data.title);
               }
@@ -194,10 +209,8 @@ export function useSettingsMenu({ setEditState, path, lane }: UseSettingsMenuPar
             .setTitle(t('Sort by tags'))
             .onClick(() => {
               const tagSortOrder = stateManager.getSetting('tag-sort');
-              const children = lane.children.slice();
               const desc = lane.data.sorted === LaneSort.TagsAsc ? true : false;
-
-              children.sort((a, b) => {
+              const children = sortLaneChildren(lane, (a, b) => {
                 const tagsA = a.data.metadata.tags;
                 const tagsB = b.data.metadata.tags;
 
@@ -244,10 +257,8 @@ export function useSettingsMenu({ setEditState, path, lane }: UseSettingsMenuPar
             i.setIcon('arrow-down-up')
               .setTitle(t('Sort by') + ' ' + lableToName(k).toLocaleLowerCase())
               .onClick(() => {
-                const children = lane.children.slice();
                 const desc = lane.data.sorted === k + '-asc' ? true : false;
-
-                children.sort((a, b) => {
+                const children = sortLaneChildren(lane, (a, b) => {
                   const valA = a.data.metadata.inlineMetadata?.find((m) => m.key === k);
                   const valB = b.data.metadata.inlineMetadata?.find((m) => m.key === k);
 

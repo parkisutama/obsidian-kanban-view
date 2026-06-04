@@ -13,6 +13,7 @@ import { KanbanContext } from '../context';
 import { c } from '../helpers';
 import { EditState, EditingState, Lane, isEditing } from '../types';
 import { ConfirmAction, useSettingsMenu } from './LaneMenu';
+import { countTasks } from './helpers';
 import { LaneSettings } from './LaneSettings';
 import { LaneLimitCounter, LaneTitle } from './LaneTitle';
 
@@ -153,7 +154,7 @@ export const LaneHeader = memo(function LaneHeader({
 
         <LaneLimitCounter
           editState={editState}
-          itemCount={lane.children.length}
+          itemCount={countTasks(lane.children)}
           maxItems={lane.data.maxItems}
         />
 

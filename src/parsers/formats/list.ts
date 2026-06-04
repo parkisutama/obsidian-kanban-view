@@ -5,6 +5,7 @@ import { toString } from 'mdast-util-to-string';
 import { stringifyYaml } from 'obsidian';
 import { KanbanSettings } from 'src/Settings';
 import { StateManager } from 'src/StateManager';
+import { laneTitleWithMaxItems } from 'src/components/Lane/helpers';
 import { generateInstanceId } from 'src/components/helpers';
 import {
   Board,
@@ -15,7 +16,6 @@ import {
   Lane,
   LaneTemplate,
 } from 'src/components/types';
-import { laneTitleWithMaxItems } from 'src/components/Lane/helpers';
 import { defaultSort } from 'src/helpers/util';
 import { t } from 'src/lang/helpers';
 import { SKIP, visit } from 'unist-util-visit';
@@ -24,7 +24,6 @@ import { archiveString, completeString, frontmatterKey, settingsToCodeblock } fr
 import { FileNode, ValueNode } from '../extensions/types';
 import {
   ContentBoundary,
-  getNextOfType,
   getNodeContentBoundary,
   getPrevSibling,
   getStringFromBoundary,
@@ -48,6 +47,24 @@ interface TaskItem extends ListItem {
   checkChar?: string;
 }
 
+function isTaskListItem(item: TaskItem) {
+  return typeof item.checked === 'boolean';
+}
+
+function getListItemMarker(md: string, item: TaskItem) {
+  const start = item.position?.start?.offset;
+
+  if (start === undefined) {
+    return '-';
+  }
+
+  const lineEnd = md.indexOf('\n', start);
+  const line = md.slice(start, lineEnd === -1 ? undefined : lineEnd);
+  const marker = line.match(/^[\t ]{0,3}([-+*]|\d{1,9}[.)])[\t ]+/)?.[1];
+
+  return marker || '-';
+}
+
 export function listItemToItemData(stateManager: StateManager, md: string, item: TaskItem) {
   const moveTags = stateManager.getSetting('move-tags');
 
@@ -67,7 +84,7 @@ export function listItemToItemData(stateManager: StateManager, md: string, item:
   let itemContent = getStringFromBoundary(md, itemBoundary);
 
   // Handle empty task
-  if (itemContent === '[' + (item.checked ? item.checkChar : ' ') + ']') {
+  if (isTaskListItem(item) && itemContent === '[' + (item.checked ? item.checkChar : ' ') + ']') {
     itemContent = '';
   }
 
@@ -101,8 +118,10 @@ export function listItemToItemData(stateManager: StateManager, md: string, item:
       fileMetadata: undefined,
       fileMetadataOrder: undefined,
     },
-    checked: item.checked,
+    checked: !!item.checked,
     checkChar: item.checked ? item.checkChar || ' ' : ' ',
+    isTask: isTaskListItem(item),
+    listMarker: getListItemMarker(md, item),
   };
 
   visit(
@@ -197,6 +216,83 @@ function isArchiveLane(child: Content, children: Content[], currentIndex: number
   return prev && prev.type === 'thematicBreak';
 }
 
+function getHeadingTitle(md: string, child: Heading) {
+  const headingBoundary = getNodeContentBoundary(child as Parent);
+  return getStringFromBoundary(md, headingBoundary);
+}
+
+function getSectionBoundary(children: Content[], startIndex: number, depth: number) {
+  let endIndex = children.length;
+
+  for (let i = startIndex + 1; i < children.length; i++) {
+    const child = children[i];
+    const next = children[i + 1];
+
+    if (
+      child.type === 'thematicBreak' &&
+      next?.type === 'heading' &&
+      isArchiveLane(next, children, i + 1)
+    ) {
+      endIndex = i;
+      break;
+    }
+
+    if (child.type === 'heading' && (child as Heading).depth <= depth) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  return endIndex;
+}
+
+function getListItemsFromNode(stateManager: StateManager, md: string, child: Content): Item[] {
+  if (child.type !== 'list') {
+    return [];
+  }
+
+  return (child as List).children.map((listItem) => {
+    return {
+      ...ItemTemplate,
+      id: generateInstanceId(),
+      data: listItemToItemData(stateManager, md, listItem),
+    };
+  });
+}
+
+function getNodeMarkdown(md: string, child: Content) {
+  const start = child.position?.start?.offset;
+  const end = child.position?.end?.offset;
+
+  if (start === undefined || end === undefined) {
+    return '';
+  }
+
+  return md.slice(start, end).trimEnd();
+}
+
+function parseLaneChildren(stateManager: StateManager, children: Content[], md: string) {
+  const items: Item[] = [];
+  const markdown: string[] = [];
+
+  children.forEach((child) => {
+    if (child.type === 'list') {
+      items.push(...getListItemsFromNode(stateManager, md, child));
+      return;
+    }
+
+    const raw = getNodeMarkdown(md, child);
+    if (raw) {
+      markdown.push(raw);
+    }
+  });
+
+  return {
+    items,
+    markdown: markdown.join('\n\n').trim(),
+  };
+}
+
 export function astToUnhydratedBoard(
   stateManager: StateManager,
   settings: KanbanSettings,
@@ -208,11 +304,11 @@ export function astToUnhydratedBoard(
   const archive: Item[] = [];
 
   // Capture preamble: everything between the end of any frontmatter block and
-  // the first H2+ heading. This preserves a document-level # H1 title (and any
+  // the first H2 heading. This preserves a document-level # H1 title (and any
   // other pre-lane content) so it survives the board → markdown round-trip.
   let preamble: string | undefined;
   const firstLaneChild = root.children.find(
-    (child) => child.type === 'heading' && (child as Heading).depth >= 2
+    (child) => child.type === 'heading' && (child as Heading).depth === 2
   );
   if (firstLaneChild?.position) {
     const beforeFirstLane = md.slice(0, firstLaneChild.position.start.offset);
@@ -228,74 +324,56 @@ export function astToUnhydratedBoard(
     if (child.type === 'heading') {
       // Skip H1 headings – they represent a document title, not a lane/column.
       // H1 content is preserved via the `preamble` field instead.
-      if ((child as Heading).depth === 1) return;
+      if ((child as Heading).depth !== 2) return;
       const isArchive = isArchiveLane(child, root.children, index);
-      const headingBoundary = getNodeContentBoundary(child as Parent);
-      const title = getStringFromBoundary(md, headingBoundary);
+      const title = getHeadingTitle(md, child as Heading);
 
       let shouldMarkItemsComplete = false;
 
-      const list = getNextOfType(root.children, index, 'list', (child) => {
-        if (child.type === 'heading') return false;
+      const endIndex = getSectionBoundary(root.children, index, 2);
+      const laneChildren = root.children.slice(index + 1, endIndex);
 
-        if (child.type === 'paragraph') {
-          const childStr = toString(child);
+      const filteredChildren = laneChildren.filter((laneChild) => {
+        if (laneChild.type !== 'paragraph') {
+          return true;
+        }
 
-          if (childStr.startsWith('%% kanban:settings')) {
-            return false;
-          }
+        const childStr = toString(laneChild);
 
-          if (childStr === t('Complete')) {
-            shouldMarkItemsComplete = true;
-            return true;
-          }
+        if (childStr.startsWith('%% kanban:settings')) {
+          return false;
+        }
+
+        if (childStr === t('Complete')) {
+          shouldMarkItemsComplete = true;
+          return false;
         }
 
         return true;
       });
 
-      if (isArchive && list) {
+      if (isArchive) {
         archive.push(
-          ...(list as List).children.map((listItem) => {
-            return {
-              ...ItemTemplate,
-              id: generateInstanceId(),
-              data: listItemToItemData(stateManager, md, listItem),
-            };
+          ...filteredChildren.flatMap((archiveChild) => {
+            return getListItemsFromNode(stateManager, md, archiveChild);
           })
         );
 
         return;
       }
 
-      if (!list) {
-        lanes.push({
-          ...LaneTemplate,
-          children: [],
-          id: generateInstanceId(),
-          data: {
-            ...parseLaneTitle(title),
-            shouldMarkItemsComplete,
-          },
-        });
-      } else {
-        lanes.push({
-          ...LaneTemplate,
-          children: (list as List).children.map((listItem) => {
-            const data = listItemToItemData(stateManager, md, listItem);
-            return {
-              ...ItemTemplate,
-              id: generateInstanceId(),
-              data,
-            };
-          }),
-          id: generateInstanceId(),
-          data: {
-            ...parseLaneTitle(title),
-            shouldMarkItemsComplete,
-          },
-        });
-      }
+      const parsedLane = parseLaneChildren(stateManager, filteredChildren, md);
+
+      lanes.push({
+        ...LaneTemplate,
+        children: parsedLane.items,
+        id: generateInstanceId(),
+        data: {
+          ...parseLaneTitle(title),
+          markdown: parsedLane.markdown || undefined,
+          shouldMarkItemsComplete,
+        },
+      });
     }
   });
 
@@ -316,7 +394,12 @@ export function astToUnhydratedBoard(
 
 export function updateItemContent(stateManager: StateManager, oldItem: Item, newContent: string) {
   const useTab = stateManager.app.vault.getConfig('useTab');
-  const md = `- [${oldItem.data.checkChar}] ${addBlockId(indentNewLines(newContent, useTab), oldItem)}`;
+  const marker = oldItem.data.listMarker || '-';
+  const itemContent = addBlockId(indentNewLines(newContent, useTab), oldItem);
+  const md =
+    oldItem.data.isTask === false
+      ? `${marker} ${itemContent}`
+      : `${marker} [${oldItem.data.checkChar}] ${itemContent}`;
 
   const ast = parseFragment(stateManager, md);
   const itemData = listItemToItemData(stateManager, md, (ast.children[0] as List).children[0]);
@@ -385,59 +468,79 @@ export function reparseBoard(stateManager: StateManager, board: Board) {
 }
 
 function itemToMd(item: Item, useTab: boolean) {
-  return `- [${item.data.checkChar}] ${addBlockId(indentNewLines(item.data.titleRaw, useTab), item)}`;
+  const marker = item.data.listMarker || '-';
+  const itemContent = addBlockId(indentNewLines(item.data.titleRaw, useTab), item);
+
+  if (item.data.isTask === false) {
+    return `${marker} ${itemContent}`;
+  }
+
+  return `${marker} [${item.data.checkChar}] ${itemContent}`;
 }
 
 function laneToMd(lane: Lane, useTab: boolean) {
-  const lines: string[] = [];
-
-  lines.push(`## ${replaceNewLines(laneTitleWithMaxItems(lane.data.title, lane.data.maxItems))}`);
+  const parts: string[] = [
+    `## ${replaceNewLines(laneTitleWithMaxItems(lane.data.title, lane.data.maxItems))}`,
+  ];
 
   if (lane.data.shouldMarkItemsComplete) {
-    lines.push(completeString);
+    parts.push(completeString);
   }
 
-  lane.children.forEach((item) => {
-    lines.push(itemToMd(item, useTab));
-  });
+  if (lane.data.markdown?.trim()) {
+    parts.push(lane.data.markdown.trim());
+  }
 
-  lines.push('');
+  if (lane.children.length) {
+    parts.push(lane.children.map((item) => itemToMd(item, useTab)).join('\n'));
+  }
 
-  return lines.join('\n');
+  return parts.join('\n\n');
 }
 
 function archiveToMd(archive: Item[], useTab: boolean) {
   if (archive.length) {
-    const lines: string[] = [archiveString, '', `## ${t('Archive')}`];
-
-    archive.forEach((item) => {
-      lines.push(itemToMd(item, useTab));
-    });
-
-    return lines.join('\n');
+    return [
+      archiveString,
+      '',
+      `## ${t('Archive')}`,
+      '',
+      archive.map((item) => itemToMd(item, useTab)).join('\n'),
+    ].join('\n');
   }
 
   return '';
 }
 
 export function boardToMd(board: Board, useTab = true) {
-  const lanes = board.children.reduce((md, lane) => {
-    return md + laneToMd(lane, useTab);
-  }, '');
+  const parts: string[] = [];
+  const lanes = board.children.map((lane) => laneToMd(lane, useTab));
+  const archive = archiveToMd(board.data.archive, useTab);
 
-  // Preamble: content that precedes the first lane (e.g. a # H1 document title).
-  const preambleMd = board.data.preamble ? board.data.preamble.trimEnd() + '\n\n' : '';
+  if (board.data.preamble?.trim()) {
+    parts.push(board.data.preamble.trimEnd());
+  }
+
+  if (lanes.length) {
+    parts.push(lanes.join('\n\n'));
+  }
+
+  if (archive) {
+    parts.push(archive);
+  }
+
+  const md = parts.length ? `${parts.join('\n\n')}\n` : '';
 
   // Legacy mode: board has `kanban-plugin` front matter key.
   // Write the full legacy format: frontmatter + preamble + lanes + settings footer.
   const isLegacy = frontmatterKey in (board.data.frontmatter ?? {});
 
   if (isLegacy) {
-    const frontmatter = ['---', '', stringifyYaml(board.data.frontmatter), '---', '', ''].join('\n');
-    return frontmatter + preambleMd + lanes + archiveToMd(board.data.archive, useTab) + settingsToCodeblock(board);
+    const frontmatter = ['---', '', stringifyYaml(board.data.frontmatter), '---'].join('\n');
+    return `${frontmatter}\n\n${md}${settingsToCodeblock(board)}`;
   }
 
   // Pure markdown mode: write only preamble + lanes (and archive if present).
   // Settings are stored externally via BoardSettingsManager.
-  return preambleMd + lanes + archiveToMd(board.data.archive, useTab);
+  return md;
 }

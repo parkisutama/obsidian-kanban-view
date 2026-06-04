@@ -54,7 +54,7 @@ interface MetadataValueProps {
   searchQuery?: string;
 }
 
-export function getLinkFromObj(v: any, view: KanbanView) {
+function getLinkFromObj(v: any, view: KanbanView) {
   if (typeof v !== 'object' || !v.path) return null;
   const viewApp = view.app;
 
@@ -85,7 +85,7 @@ export function anyToString(v: any, stateManager: StateManager): string {
   return `${v}`;
 }
 
-export function pageDataToString(data: PageData, stateManager: StateManager): string {
+function pageDataToString(data: PageData, stateManager: StateManager): string {
   return anyToString(data.value, stateManager);
 }
 

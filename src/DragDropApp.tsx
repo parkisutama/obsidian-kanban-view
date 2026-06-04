@@ -10,9 +10,10 @@ import { c, maybeCompleteForMove } from './components/helpers';
 import { Board, DataTypes, Item, Lane } from './components/types';
 import { DndContext } from './dnd/components/DndContext';
 import { DragOverlay } from './dnd/components/DragOverlay';
-import { Entity, Nestable } from './dnd/types';
+import { Entity, EntityData, Nestable, Path } from './dnd/types';
 import {
   getEntityFromPath,
+  getEntityPathParents,
   insertEntity,
   moveEntity,
   removeEntity,
@@ -31,6 +32,30 @@ const View = memo(function View({ view }: { view: KanbanView }) {
   return createPortal(view.getPortal(), view.contentEl);
 });
 
+function isDropArea(dropEntityData: EntityData, dragType: string) {
+  return !!dropEntityData.acceptsSort && !dropEntityData.acceptsSort.includes(dragType);
+}
+
+function getInsertionPathForDropArea(
+  board: Board,
+  dropPath: Path,
+  insertionMethod?: 'prepend' | 'prepend-compact' | 'append'
+) {
+  const parent = getEntityFromPath(board, dropPath);
+  const shouldAppend = (insertionMethod || 'append') === 'append';
+
+  return [...dropPath, shouldAppend ? parent.children.length : 0];
+}
+
+function getCompletionSettingFromPath(board: Board, path: Path) {
+  const destinationParents = getEntityPathParents(board, path.slice(0, -1));
+  const completionOwner = destinationParents
+    .reverse()
+    .find((entity) => entity?.data?.shouldMarkItemsComplete !== undefined);
+
+  return !!completionOwner?.data?.shouldMarkItemsComplete;
+}
+
 export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin }) {
   const views = plugin.useKanbanViews(win);
   const portals: JSX.Element[] = views.map((view) => <View key={view.id} view={view} />);
@@ -45,27 +70,36 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
         const data = dragEntity.getData();
         const stateManager = plugin.getStateManagerFromViewID(data.viewId, data.win);
         const dropPath = dropEntity.getPath();
-        const destinationParent = getEntityFromPath(stateManager.state, dropPath.slice(0, -1));
+        const dropEntityData = dropEntity.getData();
 
         try {
-          const items: Item[] = data.content.map((title: string) => {
-            const item = stateManager.getNewItem(title, ' ');
+          return stateManager.setState((board) => {
+            const targetPath = isDropArea(dropEntityData, data.type)
+              ? getInsertionPathForDropArea(
+                  board,
+                  dropPath,
+                  stateManager.getSetting('new-card-insertion-method')
+                )
+              : dropPath;
+            const shouldMarkItemsComplete = getCompletionSettingFromPath(board, targetPath);
 
-            return update(item, {
-              data: {
-                checked: {
-                  $set: !!destinationParent?.data?.shouldMarkItemsComplete,
+            const items: Item[] = data.content.map((title: string) => {
+              const item = stateManager.getNewItem(title, ' ');
+
+              return update(item, {
+                data: {
+                  checked: {
+                    $set: shouldMarkItemsComplete,
+                  },
+                  checkChar: {
+                    $set: shouldMarkItemsComplete ? getTaskStatusDone() : ' ',
+                  },
                 },
-                checkChar: {
-                  $set: destinationParent?.data?.shouldMarkItemsComplete
-                    ? getTaskStatusDone()
-                    : ' ',
-                },
-              },
+              });
             });
-          });
 
-          return stateManager.setState((board) => insertEntity(board, dropPath, items));
+            return insertEntity(board, targetPath, items);
+          });
         } catch (e) {
           stateManager.setError(e);
           console.error(e);
@@ -81,24 +115,26 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
       const [, sourceFile] = dragEntity.scopeId.split(':::');
       const [, destinationFile] = dropEntity.scopeId.split(':::');
 
-      const inDropArea =
-        dropEntityData.acceptsSort && !dropEntityData.acceptsSort.includes(dragEntityData.type);
+      const inDropArea = isDropArea(dropEntityData, dragEntityData.type);
 
       // Same board
       if (sourceFile === destinationFile) {
         const view = plugin.getKanbanView(dragEntity.scopeId, dragEntityData.win);
         const stateManager = plugin.stateManagers.get(view.file);
 
-        if (inDropArea) {
-          dropPath.push(0);
-        }
-
         return stateManager.setState((board) => {
+          const targetPath = inDropArea
+            ? getInsertionPathForDropArea(
+                board,
+                dropPath,
+                stateManager.getSetting('new-card-insertion-method')
+              )
+            : dropPath;
           const entity = getEntityFromPath(board, dragPath);
           const newBoard: Board = moveEntity(
             board,
             dragPath,
-            dropPath,
+            targetPath,
             (entity) => {
               if (entity.type === DataTypes.Item) {
                 const { next } = maybeCompleteForMove(
@@ -107,7 +143,7 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
                   dragPath,
                   stateManager,
                   board,
-                  dropPath,
+                  targetPath,
                   entity
                 );
                 return next;
@@ -122,7 +158,7 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
                   dragPath,
                   stateManager,
                   board,
-                  dropPath,
+                  targetPath,
                   entity
                 );
                 return replacement;
@@ -132,7 +168,7 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
 
           if (entity.type === DataTypes.Lane) {
             const from = dragPath.last();
-            let to = dropPath.last();
+            let to = targetPath.last();
 
             if (from < to) to -= 1;
 
@@ -151,7 +187,7 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
           }
 
           // Remove sorting in the destination lane
-          const destinationParentPath = dropPath.slice(0, -1);
+          const destinationParentPath = targetPath.slice(0, -1);
           const destinationParent = getEntityFromPath(board, destinationParentPath);
 
           if (destinationParent?.data?.sorted !== undefined) {
@@ -176,15 +212,13 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
         let replacementEntity: Nestable;
 
         destinationStateManager.setState((destinationBoard) => {
-          if (inDropArea) {
-            const parent = getEntityFromPath(destinationStateManager.state, dropPath);
-            const shouldAppend =
-              (destinationStateManager.getSetting('new-card-insertion-method') || 'append') ===
-              'append';
-
-            if (shouldAppend) dropPath.push(parent.children.length);
-            else dropPath.push(0);
-          }
+          const targetPath = inDropArea
+            ? getInsertionPathForDropArea(
+                destinationBoard,
+                dropPath,
+                destinationStateManager.getSetting('new-card-insertion-method')
+              )
+            : dropPath;
 
           const toInsert: Nestable[] = [];
 
@@ -195,7 +229,7 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
               dragPath,
               destinationStateManager,
               destinationBoard,
-              dropPath,
+              targetPath,
               entity
             );
             replacementEntity = replacement;
@@ -209,17 +243,17 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
             const val = sourceView.getViewState('list-collapse')[dragPath.last()];
             const op = (collapsedState: boolean[]) => {
               const newState = [...collapsedState];
-              newState.splice(dropPath.last(), 0, val);
+              newState.splice(targetPath.last(), 0, val);
               return newState;
             };
 
             destinationView.setViewState('list-collapse', undefined, op);
 
-            return update<Board>(insertEntity(destinationBoard, dropPath, toInsert), {
+            return update<Board>(insertEntity(destinationBoard, targetPath, toInsert), {
               data: { settings: { 'list-collapse': { $set: op(collapsedState) } } },
             });
           } else {
-            return insertEntity(destinationBoard, dropPath, toInsert);
+            return insertEntity(destinationBoard, targetPath, toInsert);
           }
         });
 

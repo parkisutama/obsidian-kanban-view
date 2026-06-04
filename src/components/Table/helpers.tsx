@@ -15,8 +15,9 @@ import { t } from 'src/lang/helpers';
 
 import { Tags } from '../Item/ItemContent';
 import { MetadataValue, anyToString } from '../Item/MetadataTable';
+import { isItem } from '../Lane/helpers';
 import { SearchContext } from '../context';
-import { Board, Lane } from '../types';
+import { Board, Item, Lane } from '../types';
 import { ItemCell, LaneCell } from './Cells';
 import { TableData, TableItem } from './types';
 
@@ -55,10 +56,12 @@ export function useTableData(board: Board, stateManager: StateManager): TableDat
     const metadataLabels: Map<string, string> = new Map();
     const lanes: Lane[] = board?.children || [];
 
-    for (let i = 0, len = lanes.length; i < len; i++) {
-      const lane = lanes[i];
-      for (let j = 0, len = lane.children.length; j < len; j++) {
-        const item = lane.children[j];
+    const collectItems = (children: Item[], lane: Lane, parentPath: number[]) => {
+      for (let j = 0, len = children.length; j < len; j++) {
+        const item = children[j];
+        if (!isItem(item)) continue;
+
+        const path = [...parentPath, j];
         const itemMetadata = item.data.metadata;
         const itemfileMetadata = itemMetadata.fileMetadata || {};
         const fileMetaOrder = itemMetadata.fileMetadataOrder || [];
@@ -74,8 +77,14 @@ export function useTableData(board: Board, stateManager: StateManager): TableDat
           }
         }
 
-        items.push({ item, lane, path: [i, j], stateManager });
+        items.push({ item, lane, path, stateManager });
+        collectItems(item.children || [], lane, path);
       }
+    };
+
+    for (let i = 0, len = lanes.length; i < len; i++) {
+      const lane = lanes[i];
+      collectItems(lane.children, lane, [i]);
     }
 
     return {

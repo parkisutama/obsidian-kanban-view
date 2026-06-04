@@ -37,8 +37,8 @@ export function hydrateBoard(stateManager: StateManager, board: Board): Board {
   try {
     board.children.map((lane) => {
       hydrateLane(stateManager, lane);
-      lane.children.map((item) => {
-        return hydrateItem(stateManager, item);
+      lane.children.forEach((item) => {
+        hydrateItem(stateManager, item);
       });
     });
   } catch (e) {

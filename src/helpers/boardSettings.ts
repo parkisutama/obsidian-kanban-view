@@ -70,8 +70,4 @@ export class BoardSettingsManager {
         }
     }
 
-    /** Returns a shallow copy of the full store (for debugging) */
-    getAll(): BoardSettingsMap {
-        return { ...this.store };
-    }
 }

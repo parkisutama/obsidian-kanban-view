@@ -4,6 +4,7 @@ import { useEffect, useState } from 'preact/compat';
 
 import { KanbanView } from './KanbanView';
 import { KanbanSettings, SettingRetrievers } from './Settings';
+import { isItem } from './components/Lane/helpers';
 import { Board, BoardTemplate, Item } from './components/types';
 import { ListFormat } from './parsers/List';
 import { BaseFormat, frontmatterKey, shouldRefreshBoard } from './parsers/common';
@@ -44,7 +45,7 @@ export class StateManager {
     onEmpty: () => void,
     getGlobalSettings: () => KanbanSettings,
     getStoredBoardSettings: () => KanbanSettings = () => ({}),
-    saveBoardSettings: (settings: KanbanSettings) => Promise<void> = async () => { }
+    saveBoardSettings: (settings: KanbanSettings) => Promise<void> = async () => {}
   ) {
     this.app = app;
     this.file = initialView.file;
@@ -385,17 +386,34 @@ export class StateManager {
 
     const archived: Item[] = [];
 
+    const stripCompleted = (children: Item[], shouldArchiveAll = false): Item[] => {
+      return children.reduce<Item[]>((next, item) => {
+        if (!isItem(item)) {
+          next.push(item);
+          return next;
+        }
+
+        const isComplete = item.data.checked && item.data.checkChar === getTaskStatusDone();
+        if (shouldArchiveAll || isComplete) {
+          archived.push(item);
+          return next;
+        }
+
+        next.push(
+          update(item, {
+            children: {
+              $set: stripCompleted(item.children || []),
+            },
+          })
+        );
+        return next;
+      }, []);
+    };
+
     const lanes = board.children.map((lane) => {
       return update(lane, {
         children: {
-          $set: lane.children.filter((item) => {
-            const isComplete = item.data.checked && item.data.checkChar === getTaskStatusDone();
-            if (lane.data.shouldMarkItemsComplete || isComplete) {
-              archived.push(item);
-            }
-
-            return !isComplete && !lane.data.shouldMarkItemsComplete;
-          }),
+          $set: stripCompleted(lane.children, !!lane.data.shouldMarkItemsComplete),
         },
       });
     });

@@ -73,21 +73,6 @@ export const DEFAULT_SYMBOLS = {
   idSymbol: '🆔',
 } as const;
 
-export function lableToIcon(label: string, value: any) {
-  switch (label) {
-    case 'priority':
-      return priorityToIcon(value);
-    case 'repeat':
-      return DEFAULT_SYMBOLS.recurrenceSymbol;
-    case 'dependsOn':
-      return DEFAULT_SYMBOLS.dependsOnSymbol;
-    case 'id':
-      return DEFAULT_SYMBOLS.idSymbol;
-  }
-
-  return label;
-}
-
 export function lableToName(label: string) {
   switch (label) {
     case 'priority':

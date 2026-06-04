@@ -15,6 +15,7 @@ export interface LaneData {
   shouldMarkItemsComplete?: boolean;
   title: string;
   maxItems?: number;
+  markdown?: string;
   dom?: HTMLDivElement;
   forceEditMode?: boolean;
   sorted?: LaneSort | string;
@@ -58,6 +59,8 @@ export interface ItemData {
   blockId?: string;
   checked: boolean;
   checkChar: string;
+  isTask?: boolean;
+  listMarker?: string;
   title: string;
   titleRaw: string;
   titleSearch: string;
@@ -122,7 +125,6 @@ export const TagSortSettingTemplate = {
   type: DataTypes.TagSortSetting,
   children: [] as any[],
 };
-
 
 export interface EditCoordinates {
   x: number;

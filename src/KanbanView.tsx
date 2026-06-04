@@ -94,7 +94,6 @@ export class KanbanView extends TextFileView implements HoverParent {
   validatePreviewCache(board: Board) {
     const seenKeys = new Set<string>();
     board.children.forEach((lane) => {
-      seenKeys.add(lane.id);
       lane.children.forEach((item) => {
         seenKeys.add(item.id);
       });

@@ -20,6 +20,7 @@ import { ItemForm } from '../Item/ItemForm';
 import { KanbanContext, SearchContext, SortContext } from '../context';
 import { c, generateInstanceId } from '../helpers';
 import { DataTypes, EditState, EditingState, Item, Lane } from '../types';
+import { countTasks } from './helpers';
 import { LaneHeader } from './LaneHeader';
 
 const laneAccepts = [DataTypes.Item];
@@ -82,7 +83,7 @@ function DraggableLaneRaw({
   const addItems = useCallback(
     (items: Item[]) => {
       boardModifiers[shouldPrepend ? 'prependItems' : 'appendItems'](
-        [...path, lane.children.length - 1],
+        path,
         items.map((item) =>
           update(item, {
             data: {
@@ -114,7 +115,7 @@ function DraggableLaneRaw({
         }
       });
     },
-    [boardModifiers, path, lane, shouldPrepend]
+    [boardModifiers, path, shouldMarkItemsComplete, shouldPrepend, view]
   );
 
   const DroppableComponent = isStatic ? StaticDroppable : Droppable;
@@ -152,7 +153,7 @@ function DraggableLaneRaw({
         style={laneStyles}
       >
         <div
-          data-count={lane.children.length}
+          data-count={countTasks(lane.children)}
           ref={elementRef}
           className={classcat([c('lane'), { 'will-prepend': shouldPrepend }])}
         >
@@ -161,7 +162,7 @@ function DraggableLaneRaw({
               bindHandle={bindHandle}
               laneIndex={laneIndex}
               lane={lane}
-              setIsItemInputVisible={isCompactPrepend ? setEditState : undefined}
+              setIsItemInputVisible={setEditState}
               isCollapsed={isCollapsed}
               toggleIsCollapsed={toggleIsCollapsed}
             />

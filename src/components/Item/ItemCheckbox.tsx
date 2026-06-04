@@ -39,6 +39,9 @@ export const ItemCheckbox = memo(function ItemCheckbox({
               return v === ' ' ? getTaskStatusDone() : ' ';
             },
           },
+          isTask: {
+            $set: true,
+          },
           $toggle: ['checked'],
         },
       })

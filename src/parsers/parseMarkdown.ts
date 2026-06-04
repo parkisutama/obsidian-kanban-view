@@ -222,8 +222,6 @@ export function parseMarkdown(
   return {
     settings,
     frontmatter: fileFrontmatter,
-    /** Whether this file used the legacy in-file settings footer */
-    hasLegacyFooter: hasFooterSettings,
     ast: fromMarkdown(md, {
       extensions: [frontmatter(['yaml']), ...getExtensions(stateManager)],
       mdastExtensions: [frontmatterFromMarkdown(['yaml']), ...getMdastExtensions(stateManager)],
